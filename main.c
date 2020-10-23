@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
 
 typedef struct C //ciclista
 {
@@ -7,7 +8,6 @@ typedef struct C //ciclista
 	int p; //linha da pista
 	int vol; //volta
 } C;
-
 
 typedef struct pista
 {
@@ -18,54 +18,56 @@ typedef struct pista
 	int** p;
 } pista;
 
-int montaPista(int d, int n, pista* P)
+// vetor de ciclistas 
+
+// barreira de sincronização
+
+// threads
+
+// runner -> loop
+// sincroniza!
+
+void montaPista(int d, int n, pista* P)
 {
 	int i;
-	P->p = (int **)malloc(d*sizeof(int *));
-	for (i=0; i<d; i++){
-		P->p[i] = (int *)malloc(10*sizeof(int));
-		//for (int j=0; j<d; j++){
-		//P->p[i][j] = (int)malloc(sizeof(int));
-		//} 
+	P->p = (int **)malloc(10*sizeof(int *));
+	for (i=0; i<10; i++){
+		P->p[i] = (int *)malloc(d*sizeof(int));
+		for (int j=0; j<d; j++){
+			P->p[i][j] = 0;
+		} 
 	}
-	printf("debug1");
 	int v[n];
-	printf("debug2;");
-	int index;
-    for (i = 0; i < d; i++) {
- 		index = (rand() %  (n - 2));
-		int aux = v[i];
-		v[i]=v[index];
-		v[index]=aux;
+	for (i = 0; i < n; i++) {
+		v[i] = i + 1;
 	}
+	int index;
+    for (i = 0; i < n; i++) {
+		// lower = i
+ 		index = (rand() % (n-1 - i + 1)) + i;
+		int aux = v[i];
+		v[i] = v[index];
+		v[index] = aux;
+	}	
 	//int r = n/5;
-	for (i = 0; i < d; i++) {
-		P->p[i/5][i%5] = v[i];
+	for (i = 0; i < n; i++) {
+		P->p[i%5][i/5] = v[i];
 	}
 } 
 
 int main(int argc, char** argv)
 {
-	printf("%d ",argc);//,argv[2]);
+	srand(time(0));
 	pista* P = (pista *)malloc(sizeof(pista));
 	P->d = atoi(argv[1]); //tem q ver se eh ```d n``` ou ```n d```
 	P->q = atoi(argv[2]); 
 	
-	printf("debug0");
 	montaPista(P->d,P->q,P); 
-	for(int j=0;j<(P->d);j++){
-		for(int k=0;k<(10);k++){
-			printf("|%d|",P->p[j][k]);
+	for(int j=0;j<10;j++){
+		for(int k=0;k<(P->d);k++){
+			printf("|%d",P->p[j][k]);
 		}
-		printf("\n");
+		printf("|\n");
 	}
 
 }
-
-/*	for (i=0; i<10; i++){
-		D[i][] = (int *)malloc(10*sizeof(int *));
-		for (int j=0; j<d; j++){
-			D[i][j] = (int)malloc(sizeof(int));
-		} 
-	}
-*/
