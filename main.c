@@ -60,11 +60,10 @@ void* ciclista_thread(void* i) {
 			printf("[Thread] %d me mexi para (%d, %d)\n", id, cic.lin, (pista->d + (cic.col-1)%pista->d)%pista->d);
 			pista->p[cic.lin][cic.col] = 0;
 			pista->p[cic.lin][(pista->d + (cic.col-1)%pista->d)%pista->d] = id;
-			th->arrive[id-1] = 1;
 		}
 		else {
 			int id_de_quem_atrapalha = pista->p[cic.lin][(pista->d + (cic.col-1)%pista->d)%pista->d];
-			//printf("[Thread] espera perigosa\n");
+			printf("[Thread] esperando %d terminar sua rodada\n", id_de_quem_atrapalha-1);
 			while(th->arrive[id_de_quem_atrapalha-1] == 0) continue;
 			if (pista->p[cic.lin][(pista->d + (cic.col-1)%pista->d)%pista->d] == 0) {
 				printf("[Thread] %d me mexi para (%d, %d)\n", id, cic.lin, (pista->d + (cic.col-1)%pista->d)%pista->d);
@@ -74,10 +73,10 @@ void* ciclista_thread(void* i) {
 			else {
 				printf("[Thread] %d tinha gente\n", id);
 			}
-			th->arrive[id-1] = 1;
 		}
 
 		printf("[Thread] %d quase acabou\n", id);
+		th->arrive[id-1] = 1;
 		while(th->go[id-1] == 0) continue;
 		th->go[id-1] = 0;
 
