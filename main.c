@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <pthread.h>
+#include <assert.h>
 
 #define MAX_CICLISTAS 100
 
@@ -36,11 +37,12 @@ int voltaAtual = 1;
 C* ciclistas;
 Pista* pista;
 ThreadHelp* th;
-pthread_mutex_t mutex;
+pthread_mutex_t m_pista;
+pthread_mutex_t m_ciclistasVivos;
 
 void exibePista(Pista* P) {
 	fprintf(stderr,"volta %d\n",voltaAtual);
-	pthread_mutex_lock(&mutex);
+	pthread_mutex_lock(&m_pista);
 	for(int j=0;j<10;j++){
 		for(int k=0;k<(P->d);k++){
 			if (P->p[j][k] == 0) {
@@ -52,9 +54,10 @@ void exibePista(Pista* P) {
 		}
 		fprintf(stderr,"|\n");
 	}
-	pthread_mutex_unlock(&mutex);
+	pthread_mutex_unlock(&m_pista);
 	fprintf(stderr,"---------------------\n");
 }
+
 
 // vetor de ciclistas 
 void* ciclista_thread(void* i) {
@@ -62,15 +65,21 @@ void* ciclista_thread(void* i) {
 	C cic = ciclistas[id-1];
 	int proxLin;
 	int proxCol;
+	int cv; // ciclistas vivos local
 	//printf("[Thread] Sou o ciclista %d e comecei a rodar e estou na pista (%d, %d), minha vel: %d\n", id, cic.lin, cic.col, cic.vel);
 
 	printf("[Thread] %d comecei\n", id);
 	while (1) {
 		proxCol=cic.col;
 		proxLin=cic.lin;
-		pthread_mutex_lock(&mutex);
-		int quem=pista->p[cic.lin][(pista->d + (cic.col-1)%pista->d)%pista->d] ;//quem esta na posicao que eu quero ir
-		pthread_mutex_unlock(&mutex);
+		pthread_mutex_lock(&m_pista);
+		//quem esta na posicao que eu quero ir
+		int quem=pista->p[cic.lin][(pista->d + (cic.col-1)%pista->d)%pista->d];
+		pthread_mutex_unlock(&m_pista);
+
+		/*
+			Decide a proxima posicao
+		*/
 		if (quem == 0) {
 			proxCol = (pista->d + (cic.col-1)%pista->d)%pista->d;
 			printf("[Thread] %d me mexi para (%d, %d)\n", id, cic.lin, proxCol);
@@ -79,9 +88,9 @@ void* ciclista_thread(void* i) {
 			printf("[Thread] %d esperando %d terminar sua rodada\n", id, quem);
 			while(th->arrive[quem-1] == 0) continue;
 			printf("[Thread] %d terminou a espera.\n", id);
-			pthread_mutex_lock(&mutex);
+			pthread_mutex_lock(&m_pista);
 			int proxQuem = pista->p[cic.lin][(pista->d + (cic.col-1)%pista->d)%pista->d];
-			pthread_mutex_unlock(&mutex);
+			pthread_mutex_unlock(&m_pista);
 			if (proxQuem == 0) {
 				proxCol = (pista->d + (cic.col-1)%pista->d)%pista->d;
 				printf("[Thread] %d me mexi para (%d, %d)\n", id, cic.lin, proxCol);
@@ -90,27 +99,41 @@ void* ciclista_thread(void* i) {
 				printf("[Thread] %d tinha gente\n", id);
 			}
 		}
-		pthread_mutex_lock(&mutex);
+
+		pthread_mutex_lock(&m_pista);
 		pista->p[cic.lin][cic.col] = 0;
 		pista->p[proxLin][proxCol] = id;
-		pthread_mutex_unlock(&mutex);
+		pthread_mutex_unlock(&m_pista);
 		cic.lin=proxLin;
 		cic.col=proxCol;
-		printf("id %d foi liberado\n", id);
+		printf("[Thread] id %d foi liberado\n", id);
 		th->arrive[id-1] = 1;
-		//OLHO NELE !!!
-		if(ciclistasVivos ==1) break;
-		
+
+		pthread_mutex_lock(&m_ciclistasVivos);
+		cv = ciclistasVivos;
+		pthread_mutex_unlock(&m_ciclistasVivos);
+		if(cv == 1) {
+			printf("[Thread] %d ganhou!! Parabens!\n", id);
+			break;
+		}
 		//ver se sou o ultimo e me destruir caso for
-		if(cic.col ==0 && voltaAtual%2==0){
+		if(cic.col==0 && voltaAtual%2==0){
 			//locka
 			cpo++;
-			if(cpo == ciclistasVivos){
+			pthread_mutex_lock(&m_ciclistasVivos);
+			cv = ciclistasVivos;
+			pthread_mutex_unlock(&m_ciclistasVivos);
+			if(cpo == cv){
 				//sou o ultimo
-				printf("[morre] %d volta %d\n",id,voltaAtual);
-				ciclistas[id-1].vivo = 0;
+				printf("[Thread][morre] %d volta %d\n",id,voltaAtual);
+				ciclistas[id-1].vivo = 0;	
+				pthread_mutex_lock(&m_pista);
 				pista->p[cic.lin][cic.col] = 0;
+				pthread_mutex_unlock(&m_pista);
+
+				pthread_mutex_lock(&m_ciclistasVivos);
 				ciclistasVivos--;
+				pthread_mutex_unlock(&m_ciclistasVivos);
 				cpo=0;
 				break;
 			}
@@ -136,6 +159,7 @@ void start_run(Pista* P){
 	exibePista(pista);
 	th = (ThreadHelp*) malloc(sizeof(ThreadHelp));
 	int i = 0;
+	int ciclistasEliminados = ciclistasVivos;
 
 	//printf("[Main] Começando a corrida, uhuul!!\n");
 	for (int i = 0; i < P->n; i++) {
@@ -149,34 +173,38 @@ void start_run(Pista* P){
 		i++;
 		// Aqui eu espero todos os ciclistas rodarem
 		for (int cic_id = 0; cic_id < pista->n; cic_id++) {
-			printf("[zumbi] %d ->%d\n",cic_id+1,ciclistas[cic_id].vivo);
-			if(ciclistas[cic_id].vivo==0){ 
-				printf("%d nao sera executado\n", cic_id);
-				continue;
-			}
-			printf("%d esperando arrive\n",cic_id+1);
+			if(ciclistas[cic_id].vivo==0) continue;
+			//printf("[Main] %d esperando arrive\n",cic_id+1);
 			while (th->arrive[cic_id] == 0) continue;
 			printf("[Main] %d chegou no arrive\n", cic_id+1);
 		}
 		for (int cic_id = 0; cic_id < pista->n; cic_id++) {
 			th->arrive[cic_id] = 0;
 		}
+		
+		// Aqui ninguem mexe na pista, esta todo mundo travado
+		// lugar safe de colocar o print e ver certo!
+		exibePista(pista);
+
+		if(i%pista->d == 0) voltaAtual++;
+			
+		assert(ciclistasEliminados-ciclistasVivos <= 1);
+		printf("[Main] %d ciclistas foram eliminados\n", ciclistasEliminados-ciclistasVivos);
+		ciclistasEliminados = ciclistasVivos;
+		printf("*****************************\n");
 
 		// Aqui é permito eles rodarem de novo
 		for (int cic_id = 0; cic_id < pista->n; cic_id++) {
 			th->go[cic_id] = 1;
 		}
-		exibePista(pista);
-		printf("**************************\n");
-		if(i%pista->d == 0)
-			//locka?
-			voltaAtual = (voltaAtual+1);
 	}
-	printf("FIM DO WHILE vivos-> %d\n",ciclistasVivos);
+	printf("[Main] FIM DO WHILE vivos-> %d\n",ciclistasVivos);
+
 	for (int i = 0; i < P->n; i++) {
 		pthread_join(th->tids[i], NULL);
 	}
-
+	exibePista(pista);
+	printf("[Main] Fim da corrida\n");
 }
 
 void montaPista(int d, int n, Pista* P)
@@ -223,9 +251,11 @@ int main(int argc, char** argv)
 	pista->d = atoi(argv[1]); //tem q ver se eh ```d n``` ou ```n d```
 	pista->n = atoi(argv[2]); 
 	pista->n_vol = 0;
-	pthread_mutex_init(&mutex, NULL);
+	pthread_mutex_init(&m_pista, NULL);
+	pthread_mutex_init(&m_ciclistasVivos, NULL);
 	montaPista(pista->d,pista->n,pista);
 	//exibePista(pista);
 	start_run(pista);
-	pthread_mutex_destroy(&mutex);
+	pthread_mutex_destroy(&m_pista);
+	pthread_mutex_destroy(&m_ciclistasVivos);
 }
