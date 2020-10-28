@@ -42,6 +42,7 @@ Pista* pista;
 ThreadHelp* th;
 pthread_mutex_t m_pista;
 pthread_mutex_t m_ciclistasVivos;
+int ciclistaCorreu;
 
 void exibePista(Pista* P) {
 	fprintf(stderr,"volta %d\n",voltaAtual);
@@ -49,16 +50,16 @@ void exibePista(Pista* P) {
 	for(int j=0;j<10;j++){
 		for(int k=0;k<(P->d);k++){
 			if (P->p[j][k] == 0) {
-				fprintf(stderr,"| ");
+				fprintf(stderr,"|  ");
 			}
 			else {
-				fprintf(stderr,"|%d",P->p[j][k]);
+				fprintf(stderr,"|%2d",P->p[j][k]);
 			}
 		}
 		fprintf(stderr,"|\n");
 	}
 	pthread_mutex_unlock(&m_pista);
-	fprintf(stderr,"---------------------\n");
+	fprintf(stderr,"---------------------------\n");
 }
 
 
@@ -132,12 +133,16 @@ void* ciclista_thread(void* i) {
 			//+2 - 90km
 			float rdm = ((float)rand())/(RAND_MAX);
 			//pensa nessa bagaca
-			/*
+			
 			if(ciclistasVivos<3 && !ciclistaCorreu){
 				//10% 2
+				if(rdm > 0.9){
+					cic->vel = 2;
+					ciclistaCorreu = 1;
+				}
 			}
 			
-			else */if(cic->vel == 0){
+			else if(cic->vel == 0){
 				//80% 1
 				//20% 0
 				if (rdm > 0.2){
@@ -153,8 +158,6 @@ void* ciclista_thread(void* i) {
 					cic->vel == 1;
 				}
 			}
-			
-
 		}
 	}
 
@@ -291,6 +294,7 @@ void montaPista(int d, int n, Pista* P)
 int main(int argc, char** argv)
 {
 	srand(time(0));
+	ciclistaCorreu = 0;
 	pista = (Pista *)malloc(sizeof(Pista));
 	pista->d = atoi(argv[1]); //tem q ver se eh ```d n``` ou ```n d```
 	pista->n = atoi(argv[2]); 
