@@ -149,12 +149,13 @@ void* ciclista_thread(void* i) {
 		pthread_mutex_unlock(&m_rank);
 
 
-		printf("[Thread] id %d foi liberado\n", id);
+		// printf("[Thread] id %d foi liberado\n", id);
 		th->arrive[id-1] = 1;
 
 		pthread_mutex_lock(&m_ciclistasVivos);
 		cv = ciclistasVivos;
 		pthread_mutex_unlock(&m_ciclistasVivos);
+
 		if(cv == 1) {
 			printf("[Thread] %d ganhou!! Parabens!\n", id);
 			break;
@@ -162,7 +163,7 @@ void* ciclista_thread(void* i) {
 	
 		while(th->go[id-1] == 0) continue;
 		th->go[id-1] = 0;
-		printf("[Thread] %d acabei\n", id);
+		// printf("[Thread] %d acabei\n", id);
 		
 		if(voltaAtual>1 && voltaAnterior!=voltaAtual){
 			//sorteia vel (1a volta 30km - normal)
@@ -173,18 +174,34 @@ void* ciclista_thread(void* i) {
 			printf("[Thread] %d vai mudar de vel. prod: %f\n", id, rdm);
 			//pensa nessa bagaca
 			
-			// if(ciclistasVivos<3){
-			// 	//10% 2
-			// 	pthread_mutex_lock(&m_ciclistaCorreu);
-			// 	if (!ciclistaCorreu) {
-			// 		if(rdm > 0.9){
-			// 			cic->vel = 2;
-			// 			ciclistaCorreu = 1;
-			// 		}
-			// 	}
-			// 	pthread_mutex_lock(&m_ciclistaCorreu);
-			// }
-			if(cic->vel == 1) { // estamos em trinta por hora
+			if(ciclistasVivos<3){
+				//10% 3
+				pthread_mutex_lock(&m_ciclistaCorreu);
+				if (!ciclistaCorreu) {
+					if(rdm > 0.9){
+						cic->vel = 3;
+						ciclistaCorreu = 1;
+					}
+				}
+				else if(cic->vel == 1) { // estamos em trinta por hora
+					//80% 2
+					//20% 1
+					if (rdm > 0.2){
+						//uma casa a mais
+						cic->vel = 2;
+					}
+
+				}
+				else if(cic->vel == 2) {
+					//60% 2
+					//40% 1
+					if(rdm > 0.6){
+						cic->vel = 1;
+					}
+				}
+				pthread_mutex_unlock(&m_ciclistaCorreu);
+			}
+			else if(cic->vel == 1) { // estamos em trinta por hora
 				//80% 2
 				//20% 1
 				if (rdm > 0.2){
@@ -278,7 +295,7 @@ void start_run(Pista* P){
 		ciclistasEliminados = ciclistasVivos;
 		printf("*****************************\n");
 
-		sleep(2);
+		sleep(1);
 		// Aqui é permito eles rodarem de novo
 		for (int cic_id = 0; cic_id < pista->n; cic_id++) {
 			th->go[cic_id] = 1;
