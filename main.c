@@ -3,6 +3,7 @@
 #include <time.h>
 #include <pthread.h>
 #include <assert.h>
+#include <unistd.h>
 
 #define MAX_CICLISTAS 100
 
@@ -11,9 +12,9 @@ typedef struct C //ciclista
 	int vel; // velocidade -> qauntos ms ele vai demorar p 1 metro nessa volta
 	int lin; //linha da pista
 	int col; // coluna da pista
- 	int vol; //volta
 	int vivo;
 	int pos; //posicao
+	int quads; //volta
 } C;
 
 typedef struct {
@@ -42,10 +43,18 @@ Pista* pista;
 ThreadHelp* th;
 pthread_mutex_t m_pista;
 pthread_mutex_t m_ciclistasVivos;
+pthread_mutex_t m_ciclistaCorreu;
+pthread_mutex_t m_rank;
 int ciclistaCorreu;
 
 void exibePista(Pista* P) {
 	fprintf(stderr,"volta %d\n",voltaAtual);
+
+	for (int i = 0; i < P->n; i++) {
+		fprintf(stderr,"|%2d",rank[i]);
+	}
+	fprintf(stderr,"|\n");
+
 	pthread_mutex_lock(&m_pista);
 	for(int j=0;j<10;j++){
 		for(int k=0;k<(P->d);k++){
@@ -78,14 +87,14 @@ void* ciclista_thread(void* i) {
 		proxLin=cic->lin;
 		pthread_mutex_lock(&m_pista);
 		//quem esta na posicao que eu quero ir
-		int quem=pista->p[cic->lin][(pista->d + (cic->col-1)%pista->d)%pista->d];
+		int quem=pista->p[cic->lin][(pista->d + (cic->col-cic->vel)%pista->d)%pista->d];
 		pthread_mutex_unlock(&m_pista);
 
 		/*
 			Decide a proxima posicao
 		*/
 		if (quem == 0) {
-			proxCol = (pista->d + (cic->col-1)%pista->d)%pista->d;
+			proxCol = (pista->d + (cic->col-cic->vel)%pista->d)%pista->d;
 			printf("[Thread] %d me mexi para (%d, %d)\n", id, cic->lin, proxCol);
 		}
 		else {
@@ -93,10 +102,10 @@ void* ciclista_thread(void* i) {
 			while(th->arrive[quem-1] == 0) continue;
 			printf("[Thread] %d terminou a espera.\n", id);
 			pthread_mutex_lock(&m_pista);
-			int proxQuem = pista->p[cic->lin][(pista->d + (cic->col-1)%pista->d)%pista->d];
+			int proxQuem = pista->p[cic->lin][(pista->d + (cic->col-cic->vel)%pista->d)%pista->d];
 			pthread_mutex_unlock(&m_pista);
 			if (proxQuem == 0) {
-				proxCol = (pista->d + (cic->col-1)%pista->d)%pista->d;
+				proxCol = (pista->d + (cic->col-cic->vel)%pista->d)%pista->d;
 				printf("[Thread] %d me mexi para (%d, %d)\n", id, cic->lin, proxCol);
 			}
 			else {
@@ -104,12 +113,41 @@ void* ciclista_thread(void* i) {
 			}
 		}
 
+		// Aqui eu andei!
+		cic->quads += cic->vel;
 		pthread_mutex_lock(&m_pista);
 		pista->p[cic->lin][cic->col] = 0;
 		pista->p[proxLin][proxCol] = id;
 		pthread_mutex_unlock(&m_pista);
 		cic->lin=proxLin;
 		cic->col=proxCol;
+
+		// Atualiza minha posicao no rank
+		int pos_rank = cic->pos;
+		int next_cic_id;
+		int temp;
+		C next_cic;
+		pthread_mutex_lock(&m_rank);
+		for (int i = pos_rank - 1; i>=0; i--) {
+			next_cic_id = rank[i];
+			next_cic = ciclistas[next_cic_id - 1];
+			
+			// passamos!
+			if (cic->col < next_cic.col && cic->quads > next_cic.quads) {
+				temp = rank[i];
+				// atualizamos a nossa posição no rank.
+				rank[i] = id;
+				rank[pos_rank] = temp;
+
+				// atualizas a posica
+				ciclistas[next_cic_id - 1].pos = pos_rank;
+				cic->pos = i;
+				pos_rank = cic->pos;
+			}
+			else break;
+		}
+		pthread_mutex_unlock(&m_rank);
+
 
 		printf("[Thread] id %d foi liberado\n", id);
 		th->arrive[id-1] = 1;
@@ -128,34 +166,38 @@ void* ciclista_thread(void* i) {
 		
 		if(voltaAtual>1 && voltaAnterior!=voltaAtual){
 			//sorteia vel (1a volta 30km - normal)
-			//nada- 30km
-			//+1 - 60km
-			//+2 - 90km
+			//+1- 30km
+			//+2 - 60km
+			//+3 - 90km
 			float rdm = ((float)rand())/(RAND_MAX);
+			printf("[Thread] %d vai mudar de vel. prod: %f\n", id, rdm);
 			//pensa nessa bagaca
 			
-			if(ciclistasVivos<3 && !ciclistaCorreu){
-				//10% 2
-				if(rdm > 0.9){
-					cic->vel = 2;
-					ciclistaCorreu = 1;
-				}
-			}
-			
-			else if(cic->vel == 0){
-				//80% 1
-				//20% 0
+			// if(ciclistasVivos<3){
+			// 	//10% 2
+			// 	pthread_mutex_lock(&m_ciclistaCorreu);
+			// 	if (!ciclistaCorreu) {
+			// 		if(rdm > 0.9){
+			// 			cic->vel = 2;
+			// 			ciclistaCorreu = 1;
+			// 		}
+			// 	}
+			// 	pthread_mutex_lock(&m_ciclistaCorreu);
+			// }
+			if(cic->vel == 1) { // estamos em trinta por hora
+				//80% 2
+				//20% 1
 				if (rdm > 0.2){
 					//uma casa a mais
-					cic->vel = 1;
+					cic->vel = 2;
 				}
 
 			}
-			else if(cic->vel == 1){
-				//60% 1
-				//40% 0
-				if(rdm > 0.4){
-					cic->vel == 1;
+			else if(cic->vel == 2) {
+				//60% 2
+				//40% 1
+				if(rdm > 0.6){
+					cic->vel = 1;
 				}
 			}
 		}
@@ -193,7 +235,7 @@ void start_run(Pista* P){
 			if(ciclistas[cic_id].vivo==0) continue;
 			//printf("[Main] %d esperando arrive\n",cic_id+1);
 			while (th->arrive[cic_id] == 0) continue;
-			printf("[Main] %d chegou no arrive\n", cic_id+1);
+			//printf("[Main] %d chegou no arrive\n", cic_id+1);
 		}
 		for (int cic_id = 0; cic_id < pista->n; cic_id++) {
 			th->arrive[cic_id] = 0;
@@ -236,6 +278,7 @@ void start_run(Pista* P){
 		ciclistasEliminados = ciclistasVivos;
 		printf("*****************************\n");
 
+		sleep(2);
 		// Aqui é permito eles rodarem de novo
 		for (int cic_id = 0; cic_id < pista->n; cic_id++) {
 			th->go[cic_id] = 1;
@@ -280,13 +323,16 @@ void montaPista(int d, int n, Pista* P)
 	//int r = n/5;
 	for (i = 0; i < n; i++) {
 		ciclistas[i].vivo = 1;
+		ciclistas[i].quads = 0;
+
 		P->p[i%5][i/5 + 1] = v[i];
-		ciclistas[i].pos = i;
+
+		ciclistas[ v[i]-1 ].pos = i;
 		rank[i] = v[i];
 		// Olho nele!
 		ciclistas[v[i]-1].lin = i%5;
 		ciclistas[v[i]-1].col = i/5 + 1;
-		ciclistas[v[i]-1].vel = 0; // 30km/h em milissegundos.
+		ciclistas[v[i]-1].vel = 1; // 30km/h em milissegundos.
 	}
 } 
 
@@ -301,9 +347,13 @@ int main(int argc, char** argv)
 	pista->n_vol = 0;
 	pthread_mutex_init(&m_pista, NULL);
 	pthread_mutex_init(&m_ciclistasVivos, NULL);
+	pthread_mutex_init(&m_ciclistaCorreu, NULL);
+	pthread_mutex_init(&m_rank, NULL);
 	montaPista(pista->d,pista->n,pista);
 	//exibePista(pista);
 	start_run(pista);
+	pthread_mutex_destroy(&m_rank);
+	pthread_mutex_destroy(&m_ciclistaCorreu);
 	pthread_mutex_destroy(&m_pista);
 	pthread_mutex_destroy(&m_ciclistasVivos);
 }
