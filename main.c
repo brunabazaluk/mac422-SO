@@ -51,11 +51,6 @@ int ciclistaCorreu;
 void exibePista(Pista* P) {
 	fprintf(stderr,"volta %d\n",voltaAtual);
 
-	for (int i = 0; i < P->n; i++) {
-		fprintf(stderr,"|%2d",rank[i]);
-	}
-	fprintf(stderr,"|\n");
-
 	pthread_mutex_lock(&m_pista);
 	for(int j=0;j<10;j++){
 		for(int k=0;k<(P->d);k++){
@@ -69,7 +64,6 @@ void exibePista(Pista* P) {
 		fprintf(stderr,"|\n");
 	}
 	pthread_mutex_unlock(&m_pista);
-	fprintf(stderr,"---------------------------\n");
 }
 
 
@@ -151,11 +145,11 @@ void* ciclista_thread(void* i) {
 			rdm = ((float)rand())/(RAND_MAX);
 
 			if (rdm < 0.05) {
-				fprintf(stderr, "[Thread][quebrou] %d\n",id);
+				fprintf(stderr, "[Thread][quebrou] %d (%f)\n",id, rdm);
 				cic->vivo = 0;
 				pista->p[cic->lin][cic->col] = 0;
-				cic->col = pista->d + 1;
-				cic->quads = -1;
+				// cic->col = pista->d + 1;
+				// cic->quads = -1;
 				ciclistasVivos--;
 
 				// quando eu morro, me coloco em ultimo
@@ -167,28 +161,6 @@ void* ciclista_thread(void* i) {
 
 		//printf("[Thread] id %d aaaaa\n", id);
 		// Atualiza minha posicao no rank
-		pthread_mutex_lock(&m_rank);
-		int pos_rank = cic->pos;
-		for (int i = pos_rank - 1; i>=0; i--) {
-
-			next_cic_id = rank[i];
-			next_cic = ciclistas[next_cic_id - 1];
-			
-			// passamos!
-			if (cic->col < next_cic.col && cic->quads > next_cic.quads) {
-				temp = rank[i];
-				// atualizamos a nossa posição no rank.
-				rank[i] = id;
-				rank[pos_rank] = temp;
-
-				// atualizas a posica
-				ciclistas[next_cic_id - 1].pos = pos_rank;
-				cic->pos = i;
-				pos_rank = cic->pos;
-			}
-			else break;
-		}
-		pthread_mutex_unlock(&m_rank);
 
 		printf("[Thread] id %d foi liberado\n", id);
 		th->arrive[id-1] = 1;
@@ -298,7 +270,61 @@ void start_run(Pista* P){
 		for (int cic_id = 0; cic_id < pista->n; cic_id++) {
 			th->arrive[cic_id] = 0;
 		}
-		
+
+		// atualiza o rank
+		fprintf(stderr,"Antes: ");
+		for (int i = 0; i < P->n; i++) {
+			C cic = ciclistas[rank[i] - 1];
+			fprintf(stderr,"|%2d(%2d)",rank[i], cic.quads);
+		}
+		fprintf(stderr,"|\n\n");
+		for (int i = nRank; i >= 0; i--) {
+			int id = rank[i];
+			//printf("id: %d \n", id);
+			C* cic = &ciclistas[ id - 1 ];
+			int pos_rank = cic->pos;
+			for (int j = i -1; j>=0; j--) {
+				int next_cic_id = rank[j];
+				//printf("id j: %d \n", next_cic_id);
+				C* next_cic = &ciclistas[next_cic_id - 1];
+				int temp;
+				if (cic->quads > next_cic->quads) {
+					temp = rank[j];
+					// atualizamos a nossa posição no rank.
+					rank[j] = id;
+					rank[pos_rank] = temp;
+
+					// atualizas a posica
+					ciclistas[next_cic_id - 1].pos = pos_rank;
+					cic->pos = j;
+					pos_rank = cic->pos;
+				}
+				else if (!next_cic->vivo) {
+					int ondeEuMorri = next_cic->pos;
+					int quemEuMorri = rank[ondeEuMorri];
+
+					for (int k = ondeEuMorri+1; k <= nRank; k++) {
+						C* _cic = &ciclistas[rank[k] - 1];
+						_cic->pos = k-1;
+						rank[k-1] = rank[k];
+					}
+
+					rank[nRank] = quemEuMorri;
+					next_cic->pos = nRank;
+				}
+			}
+		}
+
+		fprintf(stderr,"Depois: ");
+		for (int i = 0; i < P->n; i++) {
+			C cic = ciclistas[rank[i] - 1];
+			fprintf(stderr,"|%2d(%2d)",rank[i], cic.quads);
+		}
+		fprintf(stderr,"|\n");
+		fprintf(stderr,"---------------------------\n");
+
+
+		//Eliminamos o ultimos
 		if(voltaAnterior != voltaAtual && voltaAnterior%2==0 && voltaAnterior > 1){
 			//locka
 
@@ -343,7 +369,7 @@ void start_run(Pista* P){
 		ciclistasEliminados = ciclistasVivos;
 		printf("*****************************\n");
 
-		//sleep(1);
+		sleep(1);
 		// Aqui é permito eles rodarem de novo
 		for (int cic_id = 0; cic_id < pista->n; cic_id++) {
 			th->go[cic_id] = 1;
