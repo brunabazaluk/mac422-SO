@@ -43,9 +43,7 @@ C* ciclistas;
 Pista* pista;
 ThreadHelp* th;
 pthread_mutex_t m_pista;
-pthread_mutex_t m_ciclistasVivos;
 pthread_mutex_t m_ciclistaCorreu;
-pthread_mutex_t m_rank;
 int ciclistaCorreu;
 
 void exibePista(Pista* P) {
@@ -215,10 +213,8 @@ void* ciclista_thread(void* i) {
 		//printf("[Thread] id %d foi liberado\n", id);
 		th->arrive[id-1] = 1;
 
-		pthread_mutex_lock(&m_ciclistasVivos);
+		
 		cv = ciclistasVivos;
-		pthread_mutex_unlock(&m_ciclistasVivos);
-
 		if(cv == 1) {
 			printf("[Thread] %d ganhou!! Parabens!\n", id);
 			break;
@@ -425,7 +421,7 @@ void start_run(Pista* P){
 		ciclistasEliminados = ciclistasVivos;
 		printf("*****************************\n");
 
-		sleep(1);
+		//sleep(1);
 		// Aqui é permito eles rodarem de novo
 		for (int cic_id = 0; cic_id < pista->n; cic_id++) {
 			th->go[cic_id] = 1;
@@ -494,14 +490,10 @@ int main(int argc, char** argv)
 	pista->n = atoi(argv[2]); 
 	pista->n_vol = 0;
 	pthread_mutex_init(&m_pista, NULL);
-	pthread_mutex_init(&m_ciclistasVivos, NULL);
 	pthread_mutex_init(&m_ciclistaCorreu, NULL);
-	pthread_mutex_init(&m_rank, NULL);
 	montaPista(pista->d,pista->n,pista);
 	//exibePista(pista);
 	start_run(pista);
-	pthread_mutex_destroy(&m_rank);
 	pthread_mutex_destroy(&m_ciclistaCorreu);
 	pthread_mutex_destroy(&m_pista);
-	pthread_mutex_destroy(&m_ciclistasVivos);
 }
