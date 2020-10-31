@@ -64,6 +64,13 @@ void exibePista(Pista* P) {
 	pthread_mutex_unlock(&m_pista);
 }
 
+void exiberank() {
+	for (int i = 0; i < pista->n; i++) {
+		C cic = ciclistas[rank[i] - 1];
+		fprintf(stderr,"|%2d(%2d)",rank[i], cic.quads);
+	}
+	fprintf(stderr,"|\n");
+}
 
 // vetor de ciclistas 
 void* ciclista_thread(void* i) {
@@ -320,11 +327,7 @@ void start_run(Pista* P){
 		// atualiza o rank
 		fprintf(stderr,"ants rank cic vivos: %d\n", ciclistasVivos);
 		fprintf(stderr,"Antes: ");
-		for (int i = 0; i < P->n; i++) {
-			C cic = ciclistas[rank[i] - 1];
-			fprintf(stderr,"|%2d(%2d)",rank[i], cic.quads);
-		}
-		fprintf(stderr,"|\n\n");
+		exiberank();
 		for (int i = nRank; i >= 0; i--) {
 			int id = rank[i];
 			//printf("id: %d \n", id);
@@ -345,6 +348,8 @@ void start_run(Pista* P){
 					ciclistas[next_cic_id - 1].pos = pos_rank;
 					cic->pos = j;
 					pos_rank = cic->pos;
+					fprintf(stderr,"A: ");
+					exiberank();
 				}
 				else if (!next_cic->vivo) {
 					int ondeEuMorri = next_cic->pos;
@@ -361,16 +366,15 @@ void start_run(Pista* P){
 					next_cic->pos = nRank;
 					nRank--;
 					ciclistasVivos--;
+					i--;
+					fprintf(stderr,"B: ");
+					exiberank();
 				}
 			}
 		}
 		fprintf(stderr,"depois rank cic vivos: %d\n", ciclistasVivos);
 		fprintf(stderr,"Depois: ");
-		for (int i = 0; i < P->n; i++) {
-			C cic = ciclistas[rank[i] - 1];
-			fprintf(stderr,"|%2d(%2d)",rank[i], cic.quads);
-		}
-		fprintf(stderr,"|\n");
+		exiberank();
 
 
 		//Eliminamos o ultimos
