@@ -184,7 +184,7 @@ void atualizaVel60ms(C* cic, int id) {
 	float rdm;
 	// Atualiza a velocidade
 	if(cic->quads >= pista->d && cic->quads % pista->d == 0 && cic->quads != cic->quadVelAtualizada){
-		cic->quads = cic->quadVelAtualizada;
+		cic->quadVelAtualizada = cic->quads;
 		//sorteia vel (1a volta 30km - normal)
 		//+1- 30km
 		//+2 - 60km
@@ -355,7 +355,7 @@ void atualizaVel20ms(C* cic, int id) {
 	// Atualiza a velocidade
 	fprintf(stderr, "[Thread] %d vel atual %d\n", id, cic->vel);
 	if(cic->quads >= pista->d && cic->quads % pista->d == 0 && cic->quads != cic->quadVelAtualizada){
-		cic->quads = cic->quadVelAtualizada;
+		cic->quadVelAtualizada = cic->quads;
 		//sorteia vel (1a volta 30km - normal)
 		//+1- 30km
 		//+2 - 60km
@@ -456,9 +456,6 @@ void start_run(Pista* P){
 		}
 
 		// atualiza o rank
-		fprintf(stderr,"ants rank cic vivos: %d\n", ciclistasVivos);
-		fprintf(stderr,"Antes: ");
-		exiberank();
 		for (int i = nRank; i >= 0; i--) {
 			int id = rank[i];
 			//printf("id: %d \n", id);
@@ -503,16 +500,13 @@ void start_run(Pista* P){
 				}
 			}
 		}
-		fprintf(stderr,"depois rank cic vivos: %d\n", ciclistasVivos);
-		fprintf(stderr,"Depois: ");
 		exiberank();
 
-		i++;
+		//i++;
 		if (velocidadeDeAtualizacao == 1) tempo += 60;
 		else tempo += 20;
 
 		//Eliminamos o ultimos
-		fprintf(stderr,"antes desclassifica cic vivos: %d\n", ciclistasVivos);
 		if(voltaAnterior != voltaAtual && voltaAnterior%2==0 && voltaAnterior > 1){
 			//locka
 
@@ -521,7 +515,6 @@ void start_run(Pista* P){
 				
 				C cic = ciclistas[id-1];
 
-				printf("nRank: %d e ciclistasVivos: %d\n", i, ciclistasVivos);
 				if (!cic.vivo) {
 
 					nRank--;
@@ -544,8 +537,6 @@ void start_run(Pista* P){
 				break;
 			}
 		}
-		fprintf(stderr,"depois desclassifica cic vivos: %d\n", ciclistasVivos);
-		fprintf(stderr,"---------------------------\n");
 		
 		// Aqui ninguem mexe na pista, esta todo mundo travado
 		// lugar safe de colocar o print e ver certo!
@@ -553,7 +544,8 @@ void start_run(Pista* P){
 
 		//muda de vorta
 		voltaAnterior = voltaAtual;
-		if(i%pista->d == 0) voltaAtual++;
+		voltaAtual = ciclistas[ rank[nRank]-1 ].quads / pista->d;
+		//if(i%pista->d == 0) ++;
 
 		printf("[Main] %d ciclistas foram eliminados\n", ciclistasEliminados-ciclistasVivos);
 		ciclistasEliminados = ciclistasVivos;
