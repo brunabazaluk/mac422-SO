@@ -199,7 +199,7 @@ void* ciclista_thread(void* i) {
 		cic->lin=proxLin;
 		cic->col=proxCol;
 
-		if ((cic->quads/pista->d) % 6 == 0 && ciclistasVivos > 5 && cic->quads > 0) {
+		if ((cic->quads/pista->d) % 6 == 0 && ciclistasVivos > 5 && cic->quads > pista->d) {
 			rdm = ((float)rand())/(RAND_MAX);
 
 			if (rdm < 0.05) {
