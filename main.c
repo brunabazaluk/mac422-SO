@@ -39,8 +39,8 @@ int *rank;
 int cpo; //ciclistas que passaram a origem
 int ciclistasVivos;
 int nRank;
-int voltaAtual = 1;
-int voltaAnterior = 0;
+int voltaAtual = 0;
+int voltaAnterior = -1;
 int tempo = 0;
 C* ciclistas;
 Pista* pista;
