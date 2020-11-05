@@ -1,0 +1,5 @@
+Command being timed: "./a.out 250 100" User time (seconds): 4400.14 System time (seconds): 2.01 Elapsed (wall clock) time (h:mm:ss or m:ss): 18:33.28 Maximum resident set size (kbytes): 2292
+Command being timed: "./a.out 250 100" User time (seconds): 4102.55 System time (seconds): 1.72 Elapsed (wall clock) time (h:mm:ss or m:ss): 17:17.82 Maximum resident set size (kbytes): 2392
+Command being timed: "./a.out 250 100" User time (seconds): 3739.06 System time (seconds): 1.76 Elapsed (wall clock) time (h:mm:ss or m:ss): 15:47.89 Maximum resident set size (kbytes): 2244
+Command being timed: "./a.out 250 100" User time (seconds): 4336.29 System time (seconds): 0.74 Elapsed (wall clock) time (h:mm:ss or m:ss): 18:14.28 Maximum resident set size (kbytes): 2260
+Command being timed: "./a.out 250 100" User time (seconds): 3989.96 System time (seconds): 1.84 Elapsed (wall clock) time (h:mm:ss or m:ss): 16:50.71 Maximum resident set size (kbytes): 2284
