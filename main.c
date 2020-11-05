@@ -42,6 +42,7 @@ int nRank;
 int voltaAtual = 0;
 int voltaAnterior = -1;
 int tempo = 0;
+int debug = 0;
 C* ciclistas;
 Pista* pista;
 ThreadHelp* th;
@@ -51,29 +52,39 @@ int ciclistaCorreu;
 int velocidadeDeAtualizacao = 1; // 1 -> 60ms , 2-> 20ms
 
 void exibePista(Pista* P) {
-	fprintf(stderr,"volta %d\n",voltaAtual);
+	if (debug) {
+		fprintf(stderr,"volta %d\n",voltaAtual);
 
-	pthread_mutex_lock(&m_pista);
-	for(int j=0;j<10;j++){
-		for(int k=0;k<(P->d);k++){
-			if (P->p[j][k] == 0) {
-				fprintf(stderr,"|  ");
+		pthread_mutex_lock(&m_pista);
+		for(int j=0;j<10;j++){
+			for(int k=0;k<(P->d);k++){
+				if (P->p[j][k] == 0) {
+					fprintf(stderr,"|  ");
+				}
+				else {
+					fprintf(stderr,"|%2d",P->p[j][k]);
+				}
 			}
-			else {
-				fprintf(stderr,"|%2d",P->p[j][k]);
-			}
+			fprintf(stderr,"|\n");
 		}
-		fprintf(stderr,"|\n");
+		pthread_mutex_unlock(&m_pista);
 	}
-	pthread_mutex_unlock(&m_pista);
 }
 
 void exiberank() {
-	for (int i = 0; i < pista->n; i++) {
-		C cic = ciclistas[rank[i] - 1];
-		fprintf(stderr,"|%2d(%2d)",rank[i], cic.quads);
+	if (debug) {
+		for (int i = 0; i < pista->n; i++) {
+			C cic = ciclistas[rank[i] - 1];
+
+			if (cic.quebrou) {
+				fprintf(stderr,"%d | ciclista %d (%dms) - quebrou na volta %d\n",i+1, rank[i], cic.tempoLargada, cic.voltaQuebrou);
+			}
+			else {
+				fprintf(stderr,"%d | ciclista %d (%dms) \n",i+1, rank[i], cic.tempoLargada);
+			}
+		}
+		//fprintf(stderr,"|\n");
 	}
-	fprintf(stderr,"|\n");
 }
 
 void anda60ms(int rodada, C* cic, int id) {
@@ -108,7 +119,9 @@ void anda60ms(int rodada, C* cic, int id) {
 			}
 			//diminui vel
 			else {
-				fprintf(stderr,"[Thread] %d nao andei a 60\n",id);
+				if (debug) {
+					fprintf(stderr,"[Thread] %d nao andei a 60\n",id);
+				}
 				//atualiza vel
 
 				//ULTRAPASSAGEM
@@ -127,15 +140,19 @@ void anda60ms(int rodada, C* cic, int id) {
 					
 					//ve os 2
 					if(quemFrente == 0 && quemFrente2 == 0){
-						//pode andar
-						fprintf(stderr,"[Thread] %d ultrapassei!\n",id);
+						//pode and ar
+						if (debug) {
+							fprintf(stderr,"[Thread] %d ultrapassei!\n",id);
+						}
 						proxCol = (pista->d + (cic->col-1)%pista->d)%pista->d;
 						proxLin = cic->lin + 1;
 						andei = 1;
 					}
 					//diminui vel
 					else {
-						fprintf(stderr,"[Thread] %d nao andei a 60\n",id);
+						if (debug) {
+							fprintf(stderr,"[Thread] %d nao andei a 60\n",id);
+						}
 						//atualiza vel
 						cic->vel = 2;
 						return;
@@ -154,7 +171,9 @@ void anda60ms(int rodada, C* cic, int id) {
 				andei = 1;
 			}
 			else {
-				fprintf(stderr,"[Thread] %d nao andei a 30\n",id);
+				if (debug) {
+					fprintf(stderr,"[Thread] %d nao andei a 30\n",id);
+				}
 			}
 		}
 		cic->quads++;
@@ -166,11 +185,13 @@ void anda60ms(int rodada, C* cic, int id) {
 	cic->lin=proxLin;
 	cic->col=proxCol;
 
-	if ((cic->quads/pista->d) % 6 == 0 && ciclistasVivos > 5 && cic->quads > pista->d) {
+	if ((cic->quads/pista->d) % 6 == 0 && ciclistasVivos > 5 && cic->quads >= pista->d) {
 		rdm = ((float)rand())/(RAND_MAX);
 
 		if (rdm < 0.05) {
-			fprintf(stderr, "[Thread][quebrou] %d (%f)\n",id, rdm);
+			if (debug) {
+				fprintf(stderr, "[Thread][quebrou] %d (%f)\n",id, rdm);
+			}
 			cic->quebrou = 1;
 			cic->voltaQuebrou = cic->quads/pista->d;
 			cic->vivo = 0;
@@ -190,7 +211,6 @@ void atualizaVel60ms(C* cic, int id) {
 		//+2 - 60km
 		//+3 - 90km
 		rdm = ((float)rand())/(RAND_MAX);
-		printf("[Thread] %d vai mudar de vel. prod: %f\n", id, rdm);
 		//pensa nessa bagaca
 		
 		if(ciclistasVivos<3){
@@ -270,7 +290,9 @@ void anda20ms(int rodada, C* cic, int id) {
 			}
 			//diminui vel
 			else {
-				fprintf(stderr,"[Thread] %d nao andei a 60\n",id);
+				if (debug) {
+					fprintf(stderr,"[Thread] %d nao andei a 60\n",id);
+				}
 				//atualiza vel
 
 				//ULTRAPASSAGEM
@@ -290,14 +312,18 @@ void anda20ms(int rodada, C* cic, int id) {
 					//ve os 2
 					if(quemFrente == 0 && quemFrente2 == 0){
 						//pode andar
-						fprintf(stderr,"[Thread] %d ultrapassei!\n",id);
+						if (debug) {
+							fprintf(stderr,"[Thread] %d ultrapassei!\n",id);
+						}
 						proxCol = (pista->d + (cic->col-1)%pista->d)%pista->d;
 						proxLin = cic->lin + 1;
 						cic->quads++;
 					}
 					//diminui vel
 					else {
-						fprintf(stderr,"[Thread] %d nao andei a 60\n",id);
+						if (debug) {
+							fprintf(stderr,"[Thread] %d nao andei a 60\n",id);
+						}
 						//atualiza vel
 						cic->vel = 6;
 						return;
@@ -316,7 +342,9 @@ void anda20ms(int rodada, C* cic, int id) {
 				cic->quads++;
 			}
 			else {
-				fprintf(stderr,"[Thread] %d nao andei a 30\n",id);
+				if (debug) {
+					fprintf(stderr,"[Thread] %d nao andei a 30\n",id);
+				}
 			}
 		}
 		if(cic->vel == 2) { // velocidade 90 km/h
@@ -325,7 +353,9 @@ void anda20ms(int rodada, C* cic, int id) {
 				cic->quads++;
 			}
 			else {
-				fprintf(stderr,"[Thread] %d nao andei a 90\n",id);
+				if (debug) {
+					fprintf(stderr,"[Thread] %d nao andei a 90\n",id);
+				}
 			}
 		}
 	}
@@ -340,7 +370,9 @@ void anda20ms(int rodada, C* cic, int id) {
 		rdm = ((float)rand())/(RAND_MAX);
 
 		if (rdm < 0.05) {
-			fprintf(stderr, "[Thread][quebrou] %d (%f)\n",id, rdm);
+			if (debug) {
+				fprintf(stderr, "[Thread][quebrou] %d (%f)\n",id, rdm);
+			}
 			cic->quebrou = 1;
 			cic->voltaQuebrou = cic->quads/pista->d;
 			cic->vivo = 0;
@@ -353,7 +385,6 @@ void anda20ms(int rodada, C* cic, int id) {
 void atualizaVel20ms(C* cic, int id) {
 	float rdm;
 	// Atualiza a velocidade
-	fprintf(stderr, "[Thread] %d vel atual %d\n", id, cic->vel);
 	if(cic->quads >= pista->d && cic->quads % pista->d == 0 && cic->quads != cic->quadVelAtualizada){
 		cic->quadVelAtualizada = cic->quads;
 		//sorteia vel (1a volta 30km - normal)
@@ -361,7 +392,6 @@ void atualizaVel20ms(C* cic, int id) {
 		//+2 - 60km
 		//+3 - 90km
 		rdm = ((float)rand())/(RAND_MAX);
-		printf("[Thread] %d vai mudar de vel. prod: %f\n", id, rdm);
 		//pensa nessa bagaca
 		
 
@@ -391,12 +421,15 @@ void* ciclista_thread(void* i) {
 	int id = *((int *) i);
 	C* cic = &ciclistas[id-1];
 	int rodada = 0;
-	//printf("[Thread] Sou o ciclista %d e comecei a rodar e estou na pista (%d, %d), minha vel: %d\n", id, cic.lin, cic.col, cic.vel);
 
-	printf("[Thread] %d comecei\n", id);
 	while (cic->vivo) {
 		rodada++;
  
+		// Guarda o intante em que o ciclista passa pela linha de chegada.
+		if(cic->quads >= pista->d && cic->quads % pista->d == 0){
+			cic->tempoLargada = tempo;
+		}
+	
 		if (velocidadeDeAtualizacao == 1) {
 			anda60ms(rodada, cic, id);
 			atualizaVel60ms(cic, id);
@@ -405,13 +438,9 @@ void* ciclista_thread(void* i) {
 			anda20ms(rodada, cic, id);
 			atualizaVel20ms(cic, id);
 		}
-
-		if(cic->quads >= pista->d && cic->quads % pista->d == 0 && cic->quads != cic->quadVelAtualizada){
-			cic->tempoLargada = tempo;
-		}
 		
 		if(ciclistasVivos == 1) {
-			printf("[Thread] %d ganhou!! Parabens!\n", id);
+			printf("[Thread] Ciclista %d ganhou!! Parabens!\n", id);
 			break;
 		}
 
@@ -522,7 +551,10 @@ void start_run(Pista* P){
 				}
 				//fprintf(stderr,"lin%d  col%d  id%d\n",cic.lin,cic.col,id);
 				//sou o ultimo
-				printf("[Thread][morre] %d volta %d\n", id, voltaAtual);
+
+				if (debug) {
+					printf("[Thread][desclassificado] %d volta %d\n", id, voltaAtual);
+				}
 				ciclistas[id-1].vivo = 0;	
 				//exibePista(pista);
 				pthread_mutex_lock(&m_pista);
@@ -547,16 +579,14 @@ void start_run(Pista* P){
 		voltaAtual = ciclistas[ rank[nRank]-1 ].quads / pista->d;
 		//if(i%pista->d == 0) ++;
 
-		printf("[Main] %d ciclistas foram eliminados\n", ciclistasEliminados-ciclistasVivos);
 		ciclistasEliminados = ciclistasVivos;
-		printf("*****************************\n");
+		if (debug) {
+			printf("*****************************\n");
+		}
 
 
 		// Atualizamos a velocidade de atualização de exibição da pista
 		if (ciclistaCorreu == 1 && velocidadeDeAtualizacao == 1) {
-			fprintf(stderr,"-----------------------------\n");
-			fprintf(stderr,"----------- att vel ---------\n");
-			fprintf(stderr,"-----------------------------\n");
 			// muda a velodade de atualizacao
 			velocidadeDeAtualizacao = 2;
 
@@ -582,13 +612,18 @@ void start_run(Pista* P){
 		}
 		
 	}
-	printf("[Main] FIM DO WHILE vivos-> %d\n",ciclistasVivos);
+
+	if(debug) {
+		printf("[Main] FIM DO WHILE vivos-> %d\n",ciclistasVivos);
+	}
 
 	for (int i = 0; i < P->n; i++) {
 		pthread_join(th->tids[i], NULL);
 	}
 	exibePista(pista);
-	printf("[Main] Fim da corrida\n");
+	if(debug) {
+		printf("[Main] Fim da corrida\n");
+	}
 }
 
 void montaPista(int d, int n, Pista* P)
@@ -640,6 +675,9 @@ void montaPista(int d, int n, Pista* P)
 
 int main(int argc, char** argv)
 {
+
+	if (argc == 4 && argv[3][0]=='d') debug = 1;
+
 	srand(time(0));
 	ciclistaCorreu = 0;
 	pista = (Pista *)malloc(sizeof(Pista));
